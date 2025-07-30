@@ -129,8 +129,27 @@ process.on('SIGTERM', () => {
     process.exit(0);
 });
 
+// Validate token before login
+if (!process.env.TOKEN) {
+    console.error('❌ Discord bot token is missing! Please set the TOKEN environment variable.');
+    process.exit(1);
+}
+
 // Login to Discord
 client.login(process.env.TOKEN).catch(error => {
     console.error('Failed to login to Discord:', error);
+    
+    if (error.code === 'TokenInvalid') {
+        console.error('🔑 Your Discord bot token is invalid. Please check:');
+        console.error('   1. Go to Discord Developer Portal');
+        console.error('   2. Reset your bot token');
+        console.error('   3. Update the TOKEN environment variable in Render');
+    } else if (error.message.includes('disallowed intents')) {
+        console.error('🚫 Your bot is missing required intents. Please:');
+        console.error('   1. Go to Discord Developer Portal');
+        console.error('   2. Enable "Message Content Intent" in Bot settings');
+        console.error('   3. Save changes and redeploy');
+    }
+    
     process.exit(1);
 });
