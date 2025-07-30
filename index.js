@@ -537,8 +537,47 @@ client.on('messageCreate', async (message) => {
     
     const content = message.content.trim();
     
-    // Handle !setcontent command
-    if (content.startsWith('!setcontent ')) {
+    // Simple command: !react [emoji] [text or link]
+    if (content.startsWith('!react ')) {
+        const member = await message.guild.members.fetch(message.author.id);
+        if (!member.permissions.has(PermissionFlagsBits.Administrator)) {
+            return message.reply("❌ This command is for admins only.");
+        }
+        
+        const parts = content.slice(7).split(' ');
+        if (parts.length < 2) {
+            return message.reply('❌ Usage: `!react [emoji] [text or link]`\nExample: `!react ❤️ Welcome to our server!`\nExample: `!react 🔗 https://discord.gg/yourserver`');
+        }
+        
+        const emoji = parts[0];
+        const text = parts.slice(1).join(' ');
+        
+        try {
+            // Add reaction to the message
+            await message.react(emoji);
+            
+            // Store the content for this reaction
+            const emojiKey = emoji;
+            const contentKey = `${message.id}_${emojiKey}`;
+            
+            // Determine if it's a link or text
+            const isLink = text.startsWith('http://') || text.startsWith('https://');
+            
+            reactionContent.set(contentKey, {
+                type: isLink ? 'link' : 'text',
+                [isLink ? 'link' : 'text']: text
+            });
+            
+            await message.reply(`✅ Reaction ${emoji} added! When someone reacts with ${emoji}, they will receive: "${text}"`);
+            
+        } catch (error) {
+            console.error('Error setting up reaction:', error);
+            await message.reply(`❌ Failed to add reaction ${emoji}. Make sure the emoji is valid.`);
+        }
+    }
+    
+    // Handle !setcontent command (backward compatibility)
+    else if (content.startsWith('!setcontent ')) {
         const member = await message.guild.members.fetch(message.author.id);
         if (!member.permissions.has(PermissionFlagsBits.Administrator)) {
             return message.reply("❌ This command is for admins only.");
