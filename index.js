@@ -70,4 +70,6 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-client.login('MTM5MjU4NDc0OTg0NzE1NDczOA.G1paKO.EGtm-35d15VKs40LO75ugDpgpXneQywgvEE-8U');
+require('dotenv').config();
+client.login(process.env.TOKEN);
+
