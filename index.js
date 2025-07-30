@@ -9,7 +9,8 @@ const {
     PermissionFlagsBits,
     SelectMenuBuilder,
     ComponentType,
-    StringSelectMenuBuilder
+    StringSelectMenuBuilder,
+    EmbedBuilder
 } = require('discord.js');
 
 require('dotenv').config();
@@ -18,13 +19,14 @@ const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildMessageReactions // إضافة intent للـ reactions
     ],
     partials: [Partials.Message, Partials.Channel, Partials.Reaction]
 });
 
 // Configuration
-const triggerWords = ["/b", "/welcome", "/👏", "/vexo", "/tile"];
+const triggerWords = ["/b", "/welcome", "/👏", "/vexo", "/tile", "/btn", "/titlemessage", "/btnmessage", "/emoji", "/link"];
 
 // Command configurations
 const commandConfigs = {
@@ -51,8 +53,31 @@ const commandConfigs = {
         message: "🎯 Tile command ready! Add your reaction:",
         buttonLabel: "Tile Reaction 🔥",
         emoji: "🔥"
+    },
+    "/btn": {
+        message: "🔘 Button setup! Configure your reaction button:",
+        setupButton: true
+    },
+    "/titlemessage": {
+        message: "📝 Title Message setup! Set up your title and content:",
+        setupTitle: true
+    },
+    "/btnmessage": {
+        message: "💬 Button Message setup! Create button with message:",
+        setupButtonMessage: true
+    },
+    "/emoji": {
+        message: "😊 Emoji setup! Configure emoji reaction response:",
+        setupEmoji: true
+    },
+    "/link": {
+        message: "🔗 Link setup! Configure link sharing on reaction:",
+        setupLink: true
     }
 };
+
+// Storage for reaction-based content (في التطبيق الحقيقي، استخدم قاعدة بيانات)
+const reactionContent = new Map();
 
 // Common emojis for suggestions
 const commonEmojis = [
@@ -116,7 +141,7 @@ async function createSuggestionComponents(guild) {
         const commonSelect = new StringSelectMenuBuilder()
             .setCustomId('emoji_common')
             .setPlaceholder('Choose a common emoji')
-            .addOptions(commonEmojiOptions.slice(0, 25)); // Discord limit is 25
+            .addOptions(commonEmojiOptions.slice(0, 25));
         
         components.push(new ActionRowBuilder().addComponents(commonSelect));
     }
@@ -164,6 +189,64 @@ async function createSuggestionComponents(guild) {
     
     return components;
 }
+
+// Function to create setup components for new commands
+async function createSetupComponents(commandType, userId) {
+    const components = [];
+    
+    if (commandType === 'btn') {
+        const setupButton = new ButtonBuilder()
+            .setCustomId(`setup_btn_${userId}`)
+            .setLabel('Setup Button Reaction')
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji('⚙️');
+        
+        components.push(new ActionRowBuilder().addComponents(setupButton));
+    }
+    
+    else if (commandType === 'titlemessage') {
+        const setupButton = new ButtonBuilder()
+            .setCustomId(`setup_title_${userId}`)
+            .setLabel('Setup Title & Message')
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji('📝');
+        
+        components.push(new ActionRowBuilder().addComponents(setupButton));
+    }
+    
+    else if (commandType === 'btnmessage') {
+        const setupButton = new ButtonBuilder()
+            .setCustomId(`setup_btnmsg_${userId}`)
+            .setLabel('Setup Button Message')
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji('💬');
+        
+        components.push(new ActionRowBuilder().addComponents(setupButton));
+    }
+    
+    else if (commandType === 'emoji') {
+        const setupButton = new ButtonBuilder()
+            .setCustomId(`setup_emoji_${userId}`)
+            .setLabel('Setup Emoji Response')
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji('😊');
+        
+        components.push(new ActionRowBuilder().addComponents(setupButton));
+    }
+    
+    else if (commandType === 'link') {
+        const setupButton = new ButtonBuilder()
+            .setCustomId(`setup_link_${userId}`)
+            .setLabel('Setup Link Response')
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji('🔗');
+        
+        components.push(new ActionRowBuilder().addComponents(setupButton));
+    }
+    
+    return components;
+}
+
 const PORT = process.env.PORT || 3000;
 
 // Health check endpoint for Render
@@ -213,14 +296,25 @@ client.on('messageCreate', async (message) => {
                 
                 await message.reply({
                     content: config.message,
-                    components: components.slice(0, 5) // Discord limit is 5 action rows
+                    components: components.slice(0, 5)
+                });
+                return;
+            }
+            
+            // Handle new setup commands
+            if (config.setupButton || config.setupTitle || config.setupButtonMessage || config.setupEmoji || config.setupLink) {
+                const setupType = triggerWord.replace('/', '');
+                const components = await createSetupComponents(setupType, message.author.id);
+                
+                await message.reply({
+                    content: config.message,
+                    components: components
                 });
                 return;
             }
             
             // Regular command handling for other commands
             if (config.emoji) {
-                // Check if the original message already contains the target emoji
                 if (message.content.includes(config.emoji)) {
                     return;
                 }
@@ -244,6 +338,43 @@ client.on('messageCreate', async (message) => {
     }
 });
 
+// Handle reaction add events
+client.on('messageReactionAdd', async (reaction, user) => {
+    if (user.bot) return;
+    
+    try {
+        // If reaction is partial, fetch the full reaction
+        if (reaction.partial) {
+            await reaction.fetch();
+        }
+        
+        const messageId = reaction.message.id;
+        const emojiKey = reaction.emoji.id || reaction.emoji.name;
+        const contentKey = `${messageId}_${emojiKey}`;
+        
+        // Check if there's stored content for this reaction
+        if (reactionContent.has(contentKey)) {
+            const content = reactionContent.get(contentKey);
+            
+            // Send the stored content to user
+            if (content.type === 'text') {
+                await user.send(`📝 **Message:** ${content.text}`).catch(console.error);
+            } else if (content.type === 'link') {
+                await user.send(`🔗 **Link:** ${content.link}`).catch(console.error);
+            } else if (content.type === 'embed') {
+                const embed = new EmbedBuilder()
+                    .setTitle(content.title)
+                    .setDescription(content.description)
+                    .setColor(0x0099FF);
+                
+                await user.send({ embeds: [embed] }).catch(console.error);
+            }
+        }
+    } catch (error) {
+        console.error('Error handling reaction add:', error);
+    }
+});
+
 client.on('interactionCreate', async interaction => {
     if (interaction.isButton()) {
         // Handle emoji reaction buttons
@@ -264,6 +395,63 @@ client.on('interactionCreate', async interaction => {
                     ephemeral: true 
                 });
             }
+        }
+        
+        // Handle setup buttons
+        else if (interaction.customId.startsWith('setup_')) {
+            const setupType = interaction.customId.split('_')[1];
+            const userId = interaction.customId.split('_')[2];
+            
+            if (interaction.user.id !== userId) {
+                return interaction.reply({
+                    content: '❌ You can only use your own setup buttons.',
+                    ephemeral: true
+                });
+            }
+            
+            let instructions = '';
+            
+            if (setupType === 'btn') {
+                instructions = '🔘 **Button Setup Instructions:**\n\n' +
+                             '1. React to any message with an emoji\n' +
+                             '2. Then type: `!setcontent [emoji] [text or link]`\n' +
+                             '3. Example: `!setcontent ❤️ Welcome to our server!`\n' +
+                             '4. Example: `!setcontent 🔗 https://example.com`\n\n' +
+                             'Now when someone reacts with that emoji, they\'ll get your content!';
+            }
+            else if (setupType === 'title') {
+                instructions = '📝 **Title Message Setup Instructions:**\n\n' +
+                             '1. React to any message with an emoji\n' +
+                             '2. Then type: `!settitle [emoji] | [title] | [description]`\n' +
+                             '3. Example: `!settitle ⭐ | Important Info | Check our rules channel`\n\n' +
+                             'Users will receive a nice embed message!';
+            }
+            else if (setupType === 'btnmsg') {
+                instructions = '💬 **Button Message Setup Instructions:**\n\n' +
+                             '1. React to any message with an emoji\n' +
+                             '2. Then type: `!setbtnmsg [emoji] [message]`\n' +
+                             '3. Example: `!setbtnmsg 🎉 Thanks for reacting!`\n\n' +
+                             'Simple message responses for reactions!';
+            }
+            else if (setupType === 'emoji') {
+                instructions = '😊 **Emoji Response Setup Instructions:**\n\n' +
+                             '1. React to any message with an emoji\n' +
+                             '2. Then type: `!setemoji [trigger_emoji] [response_text]`\n' +
+                             '3. Example: `!setemoji 👋 Hello there! Welcome!`\n\n' +
+                             'Perfect for welcome messages and responses!';
+            }
+            else if (setupType === 'link') {
+                instructions = '🔗 **Link Setup Instructions:**\n\n' +
+                             '1. React to any message with an emoji\n' +
+                             '2. Then type: `!setlink [emoji] [link] [optional description]`\n' +
+                             '3. Example: `!setlink 📚 https://docs.example.com Study Materials`\n\n' +
+                             'Share important links when users react!';
+            }
+            
+            await interaction.reply({
+                content: instructions,
+                ephemeral: true
+            });
         }
         
         // Handle custom emoji input
@@ -320,7 +508,6 @@ client.on('interactionCreate', async interaction => {
                 const sticker = interaction.guild.stickers.cache.get(stickerId);
                 
                 if (sticker) {
-                    // Send sticker as a reply
                     await interaction.reply({
                         content: `✅ Added sticker: **${sticker.name}**`,
                         stickers: [sticker],
@@ -340,6 +527,92 @@ client.on('interactionCreate', async interaction => {
                 content: '❌ Failed to add reaction/sticker.',
                 ephemeral: true
             });
+        }
+    }
+});
+
+// Handle content setup commands
+client.on('messageCreate', async (message) => {
+    if (message.author.bot) return;
+    
+    const content = message.content.trim();
+    
+    // Handle !setcontent command
+    if (content.startsWith('!setcontent ')) {
+        const member = await message.guild.members.fetch(message.author.id);
+        if (!member.permissions.has(PermissionFlagsBits.Administrator)) {
+            return message.reply("❌ This command is for admins only.");
+        }
+        
+        const parts = content.slice(12).split(' ');
+        if (parts.length < 2) {
+            return message.reply('❌ Usage: `!setcontent [emoji] [text or link]`');
+        }
+        
+        const emoji = parts[0];
+        const text = parts.slice(1).join(' ');
+        
+        // Get recent messages to find the one with this emoji reaction
+        const messages = await message.channel.messages.fetch({ limit: 10 });
+        const targetMessage = messages.find(msg => 
+            msg.reactions.cache.some(reaction => 
+                reaction.emoji.name === emoji || reaction.emoji.toString() === emoji
+            )
+        );
+        
+        if (targetMessage) {
+            const emojiKey = emoji;
+            const contentKey = `${targetMessage.id}_${emojiKey}`;
+            
+            // Determine if it's a link or text
+            const isLink = text.startsWith('http://') || text.startsWith('https://');
+            
+            reactionContent.set(contentKey, {
+                type: isLink ? 'link' : 'text',
+                [isLink ? 'link' : 'text']: text
+            });
+            
+            await message.reply(`✅ Content set for ${emoji} reaction on the target message!`);
+        } else {
+            await message.reply('❌ No recent message found with that emoji reaction. Please react to a message first.');
+        }
+    }
+    
+    // Handle !settitle command
+    else if (content.startsWith('!settitle ')) {
+        const member = await message.guild.members.fetch(message.author.id);
+        if (!member.permissions.has(PermissionFlagsBits.Administrator)) {
+            return message.reply("❌ This command is for admins only.");
+        }
+        
+        const parts = content.slice(10).split(' | ');
+        if (parts.length < 3) {
+            return message.reply('❌ Usage: `!settitle [emoji] | [title] | [description]`');
+        }
+        
+        const emoji = parts[0].trim();
+        const title = parts[1].trim();
+        const description = parts[2].trim();
+        
+        const messages = await message.channel.messages.fetch({ limit: 10 });
+        const targetMessage = messages.find(msg => 
+            msg.reactions.cache.some(reaction => 
+                reaction.emoji.name === emoji || reaction.emoji.toString() === emoji
+            )
+        );
+        
+        if (targetMessage) {
+            const contentKey = `${targetMessage.id}_${emoji}`;
+            
+            reactionContent.set(contentKey, {
+                type: 'embed',
+                title: title,
+                description: description
+            });
+            
+            await message.reply(`✅ Title message set for ${emoji} reaction!`);
+        } else {
+            await message.reply('❌ No recent message found with that emoji reaction.');
         }
     }
 });
