@@ -9,6 +9,16 @@ const {
     PermissionFlagsBits
 } = require('discord.js');
 
+require('dotenv').config();
+
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent
+    ],
+    partials: [Partials.Message, Partials.Channel, Partials.Reaction]
+});
 
 const triggerWords = ["/b", "/welcome", "/👏"];
 const emojiToReact = "👏";
@@ -62,6 +72,4 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-require('dotenv').config();
 client.login(process.env.TOKEN);
-
