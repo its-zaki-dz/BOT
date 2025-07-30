@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: vexo-team-bot
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: TOKEN
+        sync: false
+    autoDeploy: true
