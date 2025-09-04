@@ -305,7 +305,10 @@ app.get("/callback", async (req, res) => {
             
             <div class="section">
               <div class="section-title">Status</div>
-              <div style="color: ${statusColors[status]}; font-weight: bold; text-transform: capitalize;">${status}</div>
+              <div style="color: ${statusColors[status]}; font-weight: bold; text-transform: capitalize; display: flex; align-items: center; gap: 8px;">
+                <div style="width: 12px; height: 12px; border-radius: 50%; background-color: ${statusColors[status]};"></div>
+                ${status} ${lanyardStatus ? `(Real-time via Lanyard)` : `(Default)`}
+              </div>
             </div>
 
             <div class="section">
@@ -314,8 +317,24 @@ app.get("/callback", async (req, res) => {
             </div>
 
             <div class="section">
-              <div class="section-title">Badges</div>
+              <div class="section-title">Badges & Achievements</div>
               <div>${badgesHTML}</div>
+              ${userData.premium_type ? `
+                <div style="margin-top: 10px; padding: 10px; background: linear-gradient(135deg, #FF73FA, #C77DFF); color: white; border-radius: 8px; font-weight: bold;">
+                  💎 Nitro Subscriber (Type ${userData.premium_type})
+                </div>
+              ` : ""}
+            </div>
+
+            <div class="section">
+              <div class="section-title">Account Information</div>
+              <div style="background: #f8f9fa; padding: 10px; border-radius: 5px; font-size: 14px;">
+                <strong>Created:</strong> ${new Date(((parseInt(userData.id) / 4194304) + 1420070400000)).toLocaleDateString('ar-EG')}<br>
+                <strong>Verified:</strong> ${userData.verified ? "✅ Yes" : "❌ No"}<br>
+                <strong>MFA Enabled:</strong> ${userData.mfa_enabled ? "🔒 Yes" : "🔓 No"}<br>
+                <strong>Locale:</strong> ${userData.locale || "en-US"}<br>
+                ${userData.email ? `<strong>Email:</strong> ${userData.email.replace(/(.{2})(.*)(@.*)/, '$1***$3')}<br>` : ""}
+              </div>
             </div>
 
             <a href="https://discord.com/users/${userData.id}" target="_blank" class="discord-link">
