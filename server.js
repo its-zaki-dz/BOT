@@ -307,7 +307,7 @@ app.get("/callback", async (req, res) => {
               <div class="section-title">Status</div>
               <div style="color: ${statusColors[status]}; font-weight: bold; text-transform: capitalize; display: flex; align-items: center; gap: 8px;">
                 <div style="width: 12px; height: 12px; border-radius: 50%; background-color: ${statusColors[status]};"></div>
-                ${status} ${lanyardStatus ? `(Real-time via Lanyard)` : `(Default)`}
+                ${status} ${lanyardStatus ? `(Real-time via Lanyard)` : `(Detected)`}
               </div>
             </div>
 
