@@ -1,21 +1,12 @@
 {
-  "name": "vexo-team-bot",
+  "name": "discord-oauth2",
   "version": "1.0.0",
-  "description": "Discord bot for VEXO TEAM",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "node index.js"
-  },
-  "engines": {
-    "node": ">=18.0.0"
+    "start": "node server.js"
   },
   "dependencies": {
-    "discord.js": "^14.14.1",
-    "dotenv": "^16.3.1",
-    "express": "^4.18.2"
-  },
-  "keywords": ["discord", "bot", "nodejs"],
-  "author": "VEXO TEAM",
-  "license": "MIT"
+    "express": "^4.18.2",
+    "node-fetch": "^2.6.7"
+  }
 }
