@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zaki's Discord Profile</title>
+    <meta name="description" content="View Zaki's Discord profile, status, activities, and achievements in real-time">
+    <meta property="og:title" content="Zaki's Discord Profile">
+    <meta property="og:description" content="Check out my Discord profile and current status">
+    <meta property="og:type" content="profile">
+    <meta property="og:image" content="https://cdn.discordapp.com/avatars/YOUR_USER_ID/YOUR_AVATAR.png">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-color: #5865F2;
+            --secondary-color: #7289DA;
+            --success-color: #43B581;
+            --warning-color: #FAA61A;
+            --danger-color: #F04747;
+            --dark-color: #2C2F33;
+            --light-bg: #F8F9FA;
+            --gradient-bg: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #5B73DD 100%);
+            --card-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            --border-radius: 20px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--gradient-bg);
+            min-height: 100vh;
+            color: var(--dark-color);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        .bg-particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 50%;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0.3; }
+            50% { transform: translateY(-20px) rotate(180deg); opacity: 0.8; }
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .profile-header {
+            text-align: center;
+            margin-bottom: 50px;
+            color: white;
+        }
+
+        .profile-header h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .profile-header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+
+        .main-profile-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: var(--border-radius);
+            box-shadow: var(--card-shadow);
+            overflow: hidden;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255,255,255,0.2);
+            animation: slideInUp 0.8s ease-out;
+        }
+
+        @keyframes slideInUp {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .profile-banner {
+            height: 200px;
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            position: relative;
+            overflow: hidden;
+        }
+
+        .profile-banner::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="20" cy="20" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="80" cy="40" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="40" cy="80" r="1" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+        }
+
+        .avatar-section {
+            position: relative;
+            text-align: center;
+            margin-top: -80px;
+            padding: 0 30px 30px;
+        }
+
+        .avatar-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        .avatar {
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            border: 8px solid white;
+            background: white;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+            transition: transform 0.3s ease;
+        }
+
+        .avatar:hover {
+            transform: scale(1.05);
+        }
+
+        .status-ring {
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 6px solid white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            animation: statusPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes statusPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .user-info {
+            margin-top: 25px;
+        }
+
+        .display-name {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: var(--dark-color);
+            margin-bottom: 8px;
+        }
+
+        .username {
+            color: #666;
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-top: 30px;
+        }
+
+        .info-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+            border: 1px solid rgba(0,0,0,0.05);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .info-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.12);
+        }
+
+        .card-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--dark-color);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-display {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 15px;
+            background: var(--light-bg);
+            border-radius: 10px;
+            font-weight: 500;
+            font-size: 1.1rem;
+        }
+
+        .activity-item {
+            margin: 12px 0;
+            padding: 15px;
+            border-radius: 10px;
+            color: white;
+            font-weight: 500;
+            transition: transform 0.2s ease;
+        }
+
+        .activity-item:hover {
+            transform: translateX(5px);
+        }
+
+        .activity-playing {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        }
+
+        .activity-listening {
+            background: linear-gradient(135deg, #1DB954, #1ED760);
+        }
+
+        .activity-streaming {
+            background: linear-gradient(135deg, #9146FF, #A855F7);
+        }
+
+        .activity-watching {
+            background: linear-gradient(135deg, #FF6B6B, #FF8E8E);
+        }
+
+        .activity-custom {
+            background: linear-gradient(135deg, #36393f, #484B51);
+        }
+
+        .badge {
+            display: inline-block;
+            margin: 4px;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            transition: transform 0.2s ease;
+        }
+
+        .badge:hover {
+            transform: translateY(-2px);
+        }
+
+        .account-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 15px;
+            background: var(--light-bg);
+            border-radius: 10px;
+            transition: background 0.3s ease;
+        }
+
+        .stat-item:hover {
+            background: #e9ecef;
+        }
+
+        .stat-value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .social-links {
+            text-align: center;
+            margin-top: 40px;
+        }
+
+        .social-btn {
+            display: inline-block;
+            margin: 10px;
+            padding: 12px 25px;
+            background: var(--primary-color);
+            color: white;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 6px 15px rgba(88, 101, 242, 0.3);
+        }
+
+        .social-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(88, 101, 242, 0.4);
+            background: #4752C4;
+        }
+
+        .refresh-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            background: var(--success-color);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(67, 181, 129, 0.3);
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+
+        .refresh-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 12px 30px rgba(67, 181, 129, 0.4);
+        }
+
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px 10px;
+            }
+            
+            .profile-header h1 {
+                font-size: 2.2rem;
+            }
+            
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .avatar {
+                width: 120px;
+                height: 120px;
+            }
+            
+            .refresh-btn {
+                bottom: 20px;
+                right: 20px;
+                width: 50px;
+                height: 50px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-particles" id="particles"></div>
+    
+    <div class="container">
+        <div class="profile-header">
+            <h1>🌟 ملف Zaki الشخصي</h1>
+            <p>مرحباً بك في صفحتي الشخصية على Discord</p>
+        </div>
+
+        <div class="main-profile-card">
+            <div class="profile-banner" id="profileBanner">
+                <!-- Banner will be loaded here -->
+            </div>
+            
+            <div class="avatar-section">
+                <div class="avatar-container">
+                    <img id="userAvatar" src="https://cdn.discordapp.com/embed/avatars/0.png" alt="Avatar" class="avatar">
+                    <div class="status-ring" id="statusRing" style="background-color: #43B581;"></div>
+                </div>
+                
+                <div class="user-info">
+                    <div class="display-name" id="displayName">Loading...</div>
+                    <div class="username" id="username">@loading</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-card">
+                <div class="card-title">📊 الحالة الحية</div>
+                <div class="status-display" id="statusDisplay">
+                    <div style="width: 16px; height: 16px; border-radius: 50%; background: #43B581;"></div>
+                    <span>جاري التحميل...</span>
+                </div>
+                <div style="margin-top: 15px; font-size: 0.9rem; color: #666;" id="lastUpdate">
+                    آخر تحديث: جاري التحميل...
+                </div>
+            </div>
+
+            <div class="info-card">
+                <div class="card-title">🎮 الأنشطة الحالية</div>
+                <div id="activitiesContainer">
+                    <div style="text-align: center; color: #666; padding: 20px;">
+                        جاري تحميل الأنشطة...
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <div class="card-title">🏆 الشارات والإنجازات</div>
+                <div id="badgesContainer">
+                    <div style="text-align: center; color: #666; padding: 20px;">
+                        جاري تحميل الشارات...
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <div class="card-title">📈 إحصائيات الحساب</div>
+                <div class="account-stats" id="accountStats">
+                    <div class="stat-item">
+                        <span class="stat-value">---</span>
+                        <span class="stat-label">أيام منذ الإنشاء</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value">---</span>
+                        <span class="stat-label">الخوادم</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value">---</span>
+                        <span class="stat-label">نوع الحساب</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="social-links">
+            <a href="#" id="discordProfileLink" class="social-btn">🔗 فتح ملف Discord</a>
+            <a href="https://bot-c43g.onrender.com/login" class="social-btn">🤖 تجربة OAuth2</a>
+        </div>
+    </div>
+
+    <button class="refresh-btn" id="refreshBtn" onclick="loadProfileData()" title="تحديث البيانات">
+        🔄
+    </button>
+
+    <script>
+        // Your Discord User ID - يجب تغييرها لمعرف المستخدم الخاص بك
+        const DISCORD_USER_ID = '1250579822309146756';
+        
+        // إنشاء الجزيئات المتحركة
+        function createParticles() {
+            const particlesContainer = document.getElementById('particles');
+            const particleCount = 50;
+            
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.top = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 6 + 's';
+                particle.style.animationDuration = (Math.random() * 4 + 4) + 's';
+                particlesContainer.appendChild(particle);
+            }
+        }
+
+        // تحميل بيانات الملف الشخصي
+        async function loadProfileData() {
+            const refreshBtn = document.getElementById('refreshBtn');
+            refreshBtn.style.transform = 'rotate(360deg)';
+            
+            try {
+                // محاولة الحصول على بيانات من Lanyard API
+                const lanyardResponse = await fetch(`https://api.lanyard.rest/v1/users/${DISCORD_USER_ID}`);
+                
+                if (lanyardResponse.ok) {
+                    const lanyardData = await lanyardResponse.json();
+                    
+                    if (lanyardData.success && lanyardData.data) {
+                        updateProfileDisplay(lanyardData.data);
+                    } else {
+                        showFallbackProfile();
+                    }
+                } else {
+                    showFallbackProfile();
+                }
+            } catch (error) {
+                console.error('Error loading profile data:', error);
+                showFallbackProfile();
+            }
+            
+            setTimeout(() => {
+                refreshBtn.style.transform = 'rotate(0deg)';
+            }, 500);
+        }
+
+        function updateProfileDisplay(data) {
+            // تحديث المعلومات الأساسية
+            const displayName = data.discord_user.global_name || data.discord_user.username;
+            const username = data.discord_user.username;
+            const discriminator = data.discord_user.discriminator;
+            const userId = data.discord_user.id;
+
+            document.getElementById('displayName').textContent = displayName;
+            document.getElementById('username').textContent = `@${username}${discriminator !== '0' ? `#${discriminator}` : ''}`;
+
+            // تحديث الأفاتار
+            const avatarUrl = data.discord_user.avatar 
+                ? `https://cdn.discordapp.com/avatars/${userId}/${data.discord_user.avatar}.png?size=256`
+                : `https://cdn.discordapp.com/embed/avatars/${discriminator % 5}.png`;
+            document.getElementById('userAvatar').src = avatarUrl;
+
+            // تحديث البانر
+            if (data.discord_user.banner) {
+                const bannerUrl = `https://cdn.discordapp.com/banners/${userId}/${data.discord_user.banner}.png?size=1024`;
+                document.getElementById('profileBanner').innerHTML = `<img src="${bannerUrl}" style="width: 100%; height: 100%; object-fit: cover;" alt="Banner">`;
+            }
+
+            // تحديث الحالة
+            const statusColors = {
+                online: '#43B581',
+                idle: '#FAA61A',
+                dnd: '#F04747',
+                offline: '#747F8D'
+            };
+
+            const statusTexts = {
+                online: 'متصل',
+                idle: 'خامل',
+                dnd: 'مشغول',
+                offline: 'غير متصل'
+            };
+
+            const currentStatus = data.discord_status || 'offline';
+            const statusColor = statusColors[currentStatus];
+            const statusText = statusTexts[currentStatus];
+
+            document.getElementById('statusRing').style.backgroundColor = statusColor;
+            document.getElementById('statusDisplay').innerHTML = `
+                <div style="width: 16px; height: 16px; border-radius: 50%; background: ${statusColor};"></div>
+                <span style="color: ${statusColor}; font-weight: 600;">${statusText}</span>
+            `;
+
+            // تحديث الأنشطة
+            updateActivities(data.activities || []);
+
+            // تحديث آخر تحديث
+            document.getElementById('lastUpdate').textContent = `آخر تحديث: ${new Date().toLocaleString('ar-EG')}`;
+
+            // تحديث رابط Discord
+            document.getElementById('discordProfileLink').href = `https://discord.com/users/${userId}`;
+        }
+
+        function updateActivities(activities) {
+            const container = document.getElementById('activitiesContainer');
+            
+            if (activities.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; color: #666; padding: 20px; background: #f8f9fa; border-radius: 10px;">
+                        😴 لا توجد أنشطة حالياً
+                    </div>`;
+                return;
+            }
+
+            const activitiesHTML = activities.map(activity => {
+                const name = activity.name || 'Unknown Activity';
+                const details = activity.details || '';
+                const state = activity.state || '';
+                
+                const activityTypes = {
+                    0: { class: 'activity-playing', icon: '🎮', label: 'يلعب' },
+                    1: { class: 'activity-streaming', icon: '📺', label: 'يبث' },
+                    2: { class: 'activity-listening', icon: '🎵', label: 'يستمع إلى' },
+                    3: { class: 'activity-watching', icon: '📺', label: 'يشاهد' },
+                    4: { class: 'activity-custom', icon: '💭', label: 'حالة مخصصة' },
+                    5: { class: 'activity-playing', icon: '🏆', label: 'يتنافس في' }
+                };
+                
+                const activityType = activityTypes[activity.type] || activityTypes[0];
+                
+                return `
+                    <div class="activity-item ${activityType.class}">
+                        ${activityType.icon} <strong>${activityType.label}:</strong> ${name}
+                        ${details ? `<br><small style="opacity: 0.9;">📋 ${details}</small>` : ''}
+                        ${state ? `<br><small style="opacity: 0.9;">📍 ${state}</small>` : ''}
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = activitiesHTML;
+        }
+
+        function showFallbackProfile() {
+            // عرض ملف شخصي افتراضي عند عدم توفر البيانات
+            document.getElementById('displayName').textContent = 'Zaki';
+            document.getElementById('username').textContent = '@its_zaki_dz';
+            
+            document.getElementById('statusDisplay').innerHTML = `
+                <div style="width: 16px; height: 16px; border-radius: 50%; background: #747F8D;"></div>
+                <span style="color: #747F8D;">غير متاح - تحتاج إلى Lanyard</span>
+            `;
+
+            document.getElementById('activitiesContainer').innerHTML = `
+                <div style="text-align: center; color: #666; padding: 20px; background: #f8f9fa; border-radius: 10px;">
+                    ⚠️ البيانات المباشرة غير متاحة<br>
+                    <small>يرجى التأكد من تفعيل Lanyard API</small>
+                </div>`;
+
+            document.getElementById('badgesContainer').innerHTML = `
+                <div style="text-align: center; color: #666; padding: 20px;">
+                    🔒 الشارات غير متاحة بدون مصادقة
+                </div>`;
+
+            document.getElementById('lastUpdate').textContent = `آخر تحديث: ${new Date().toLocaleString('ar-EG')} (البيانات الافتراضية)`;
+        }
+
+        // تحميل البيانات عند بدء الصفحة
+        document.addEventListener('DOMContentLoaded', function() {
+            createParticles();
+            setTimeout(loadProfileData, 1000);
+            
+            // تحديث تلقائي كل دقيقة
+            setInterval(loadProfileData, 60000);
+        });
+
+        // تحديث معرف المستخدم الفعلي
+        // يجب استبدال 'YOUR_DISCORD_USER_ID' بمعرف Discord الخاص بك
+        // يمكن الحصول على المعرف من خلال تشغيل OAuth2 service وفحص response
+    </script>
+</body>
+</html>
