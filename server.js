@@ -30,9 +30,30 @@ app.get("/login", (req, res) => {
 app.get("/callback", async (req, res) => {
   try {
     const code = req.query.code;
+    const error = req.query.error;
+    
+    // التحقق من وجود خطأ في المصادقة
+    if (error) {
+      console.error("Discord OAuth error:", error);
+      return res.send(`
+        <h1>خطأ في المصادقة</h1>
+        <p>تم رفض المصادقة من Discord: ${error}</p>
+        <a href="/login" style="background: #5865F2; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">إعادة المحاولة</a>
+      `);
+    }
     
     if (!code) {
-      return res.status(400).send("Authorization code is missing.");
+      return res.send(`
+        <h1>كود المصادقة مفقود</h1>
+        <p>لم يتم العثور على كود المصادقة. يرجى البدء من صفحة تسجيل الدخول.</p>
+        <p>تأكد من:</p>
+        <ul>
+          <li>البدء من صفحة /login</li>
+          <li>عدم رفض المصادقة في Discord</li>
+          <li>صحة إعدادات التطبيق في Discord Developer Portal</li>
+        </ul>
+        <a href="/login" style="background: #5865F2; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">تسجيل الدخول مرة أخرى</a>
+      `);
     }
 
     console.log("Received authorization code");
