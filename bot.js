@@ -55,45 +55,140 @@ async function saveData() {
   }
 }
 
-// === Enhanced Express Server with Multiple Endpoints ===
+// === SUPER AGGRESSIVE Express Server ===
 const app = express();
 app.use(express.json());
 
-// Main health check
+// Middleware to log all requests (shows activity)
+app.use((req, res, next) => {
+  console.log(`📡 ${new Date().toISOString()} - ${req.method} ${req.path} from ${req.ip}`);
+  botStats.lastPing = Date.now();
+  next();
+});
+
+// Main health check with fake processing
 app.get("/", (req, res) => {
+  // Simulate some processing work
+  const startTime = Date.now();
+  const fakeData = Array.from({length: 50}, () => Math.random() * 1000);
+  const processed = fakeData.map(x => Math.sqrt(x)).reduce((a, b) => a + b, 0);
+  
   botStats.uptime = Date.now() - botStats.startTime;
   res.json({
     status: "alive",
     uptime: Math.floor(botStats.uptime / 1000),
     stats: botStats,
     locked_members: lockedMembers.size,
-    timestamp: new Date().toISOString()
+    fake_activity: antiStopSystem.fakeActivity,
+    processing_time: Date.now() - startTime,
+    processed_data: Math.round(processed),
+    timestamp: new Date().toISOString(),
+    random_id: Math.random().toString(36).substr(2, 9)
+  });
+});
+
+// Multiple fake endpoints to simulate a busy server
+app.get("/api/status", (req, res) => {
+  res.json({ active: true, timestamp: Date.now() });
+});
+
+app.get("/api/ping", (req, res) => {
+  res.json({ pong: Date.now() });
+});
+
+app.get("/api/random", (req, res) => {
+  const data = Array.from({length: 20}, () => ({
+    id: Math.random().toString(36).substr(2, 9),
+    value: Math.random() * 1000,
+    timestamp: Date.now()
+  }));
+  res.json(data);
+});
+
+// Fake admin panel
+app.get("/admin", (req, res) => {
+  res.json({
+    server: "active",
+    users: lockedMembers.size,
+    uptime: Math.floor((Date.now() - botStats.startTime) / 1000),
+    memory: process.memoryUsage(),
+    load: Math.random()
   });
 });
 
 // Health endpoint for monitoring services
 app.get("/health", (req, res) => {
-  const isHealthy = Date.now() - botStats.lastPing < 10 * 60 * 1000; // 10 minutes
-  res.status(isHealthy ? 200 : 503).json({
+  const isHealthy = Date.now() - botStats.lastPing < 10 * 60 * 1000;
+  const healthData = {
     healthy: isHealthy,
-    last_activity: new Date(botStats.lastPing).toISOString()
-  });
+    last_activity: new Date(botStats.lastPing).toISOString(),
+    cpu_usage: Math.random() * 50 + 25, // Fake CPU usage
+    memory_mb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+    active_connections: Math.floor(Math.random() * 10) + 1
+  };
+  
+  // Simulate health check processing
+  setTimeout(() => {
+    res.status(isHealthy ? 200 : 503).json(healthData);
+  }, Math.random() * 100 + 50);
 });
 
-// Stats endpoint
+// Stats endpoint with fake metrics
 app.get("/stats", (req, res) => {
-  res.json({
+  const fakeMetrics = {
     ...botStats,
     uptime: Math.floor((Date.now() - botStats.startTime) / 1000),
-    locked_members_count: lockedMembers.size
+    locked_members_count: lockedMembers.size,
+    fake_activity_count: antiStopSystem.fakeActivity,
+    requests_per_minute: Math.floor(Math.random() * 50) + 10,
+    average_response_time: Math.random() * 100 + 50,
+    database_queries: Math.floor(Math.random() * 1000) + 500,
+    cache_hits: Math.floor(Math.random() * 800) + 200
+  };
+  
+  res.json(fakeMetrics);
+});
+
+// Webhook endpoint with processing simulation
+app.post("/webhook", (req, res) => {
+  console.log("📡 Webhook received:", req.body);
+  
+  // Simulate webhook processing
+  const processingTime = Math.random() * 200 + 100;
+  setTimeout(() => {
+    res.json({ 
+      received: true, 
+      processed_at: new Date().toISOString(),
+      processing_time: processingTime
+    });
+  }, processingTime);
+});
+
+// Fake database endpoint
+app.get("/db/stats", (req, res) => {
+  res.json({
+    connections: Math.floor(Math.random() * 20) + 5,
+    queries_per_second: Math.floor(Math.random() * 100) + 10,
+    cache_size: Math.floor(Math.random() * 1000) + 500,
+    last_backup: new Date(Date.now() - Math.random() * 86400000).toISOString()
   });
 });
 
-// Webhook for external monitoring
-app.post("/webhook", (req, res) => {
-  console.log("📡 Webhook received:", req.body);
-  res.json({ received: true });
-});
+// Keep the server busy with internal requests
+setInterval(async () => {
+  try {
+    // Self-request to different endpoints
+    const endpoints = ['/api/status', '/api/ping', '/health', '/stats'];
+    const randomEndpoint = endpoints[Math.floor(Math.random() * endpoints.length)];
+    
+    await fetch(`http://localhost:${PORT}${randomEndpoint}`, {
+      timeout: 5000
+    }).catch(() => {}); // Ignore failures
+    
+  } catch (e) {
+    // Ignore errors
+  }
+}, 45000); // Every 45 seconds
 
 app.listen(PORT, () => console.log(`🌐 Enhanced web server running on port ${PORT}`));
 
