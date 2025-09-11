@@ -1,32 +1,30 @@
+// bot.js
 const express = require("express");
 const fetch = require("node-fetch");
 const { Client, GatewayIntentBits, Partials, Events } = require("discord.js");
 
-// ====== Environment Variables ======
+// === Environment Variables ===
 const TOKEN = process.env.DISCORD_TOKEN;
 const CHANNEL_ID = process.env.CHANNEL_ID;
 const ROLE_ID = process.env.ROLE_ID;
 const TAG_TRIGGER = process.env.TAG_TRIGGER || "#tag";
 const NICK_PREFIX = process.env.NICK_PREFIX || "C9・";
-const PORT = process.env.PORT;
-app.listen(PORT, () => console.log(`Web server running on port ${PORT}`));
+const PORT = process.env.PORT || 3000;
+const SELF_URL = process.env.SELF_URL; // ضع هنا رابط موقعك على Render
 
-if (!TOKEN || !CHANNEL_ID || !ROLE_ID) {
-  console.error("❌ Missing environment variables: DISCORD_TOKEN, CHANNEL_ID, ROLE_ID are required!");
-  process.exit(1);
+// === Express keep-alive server ===
+const app = express();
+app.get("/", (req, res) => res.send("Bot is alive!"));
+app.listen(PORT, () => console.log(`🌐 Web server running on port ${PORT}`));
+
+// === Self-ping system (Anti-Stop) ===
+if (SELF_URL) {
+  setInterval(() => {
+    fetch(SELF_URL).catch(err => console.log("Keep-alive error:", err.message));
+  }, 5 * 60 * 1000); // كل 5 دقائق
 }
 
-// ====== Express Web Server ======
-const app = express();
-app.get("/", (req, res) => res.send("Bot is running!"));
-app.listen(PORT, () => console.log(`Web server running on port ${PORT}`));
-
-// Self-ping كل 5 دقائق
-setInterval(() => {
-  fetch(URL).then(() => console.log("Self-ping sent")).catch(() => {});
-}, 5 * 60 * 1000);
-
-// ====== Discord Bot ======
+// === Discord client ===
 const lockedMembers = new Set();
 
 const client = new Client({
@@ -43,7 +41,7 @@ client.once(Events.ClientReady, () => {
   console.log(`✅ Ready as ${client.user.tag}`);
 });
 
-// Listen for trigger
+// === Message trigger ===
 client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot) return;
   if (!message.guild) return;
@@ -54,7 +52,7 @@ client.on(Events.MessageCreate, async (message) => {
   if (!member) return;
 
   if (member.roles.cache.has(ROLE_ID)) {
-    return message.reply("✅ You already have the role.");
+    return message.reply("You already have the role.");
   }
 
   try {
@@ -70,14 +68,14 @@ client.on(Events.MessageCreate, async (message) => {
     }
 
     lockedMembers.add(member.id);
-    await message.reply("✅ Role assigned and nickname updated.");
+    await message.reply("Role assigned and nickname updated.");
   } catch (err) {
     console.error("Error assigning role:", err);
-    message.reply("⚠️ Failed to assign role — check bot permissions and role hierarchy.");
+    message.reply("Failed to assign role — check bot permissions.");
   }
 });
 
-// Enforce role & nickname
+// === Enforce lock ===
 client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
   if (!lockedMembers.has(newMember.id)) return;
 
@@ -104,4 +102,9 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
   }
 });
 
+// === Login ===
+if (!TOKEN) {
+  console.error("❌ Missing DISCORD_TOKEN environment variable!");
+  process.exit(1);
+}
 client.login(TOKEN);
