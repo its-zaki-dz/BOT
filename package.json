@@ -1,13 +1,32 @@
 {
-  "name": "discord-bot",
-  "version": "1.0.0",
+  "name": "enhanced-discord-bot",
+  "version": "2.0.0",
+  "description": "Enhanced Discord bot with performance optimizations and anti-stop mechanisms",
   "main": "bot.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node bot.js"
+    "start": "node bot.js",
+    "dev": "nodemon bot.js",
+    "test": "node --check bot.js"
   },
   "dependencies": {
     "discord.js": "^14.15.3",
-    "express": "^4.18.2"
-  }
+    "express": "^4.18.2",
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "discord.js",
+    "role-management",
+    "anti-stop"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
 }
