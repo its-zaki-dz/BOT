@@ -1,13 +1,14 @@
 {
-  "name": "enhanced-discord-bot",
-  "version": "2.0.0",
-  "description": "Enhanced Discord bot with performance optimizations and anti-stop mechanisms",
+  "name": "discord-bot-management-system",
+  "version": "3.0.0",
+  "description": "Enhanced Discord bot with web management interface and anti-stop system for free hosting platforms",
   "main": "bot.js",
   "type": "commonjs",
   "scripts": {
     "start": "node bot.js",
     "dev": "nodemon bot.js",
-    "test": "node --check bot.js"
+    "test": "node --check bot.js",
+    "lint": "echo 'Linting...' && node --check bot.js"
   },
   "dependencies": {
     "discord.js": "^14.15.3",
@@ -18,15 +19,25 @@
     "nodemon": "^3.0.1"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
   },
   "keywords": [
     "discord",
     "bot",
     "discord.js",
     "role-management",
-    "anti-stop"
+    "web-interface",
+    "anti-stop",
+    "render",
+    "free-hosting",
+    "management-panel"
   ],
+  "repository": {
+    "type": "git",
+    "url": "your-repository-url"
+  },
   "author": "Your Name",
-  "license": "MIT"
+  "license": "MIT",
+  "homepage": "https://your-bot-url.onrender.com"
 }
