@@ -8,8 +8,8 @@ const CHANNEL_ID = process.env.CHANNEL_ID;
 const ROLE_ID = process.env.ROLE_ID;
 const TAG_TRIGGER = process.env.TAG_TRIGGER || "#tag";
 const NICK_PREFIX = process.env.NICK_PREFIX || "C9・";
-const PORT = process.env.PORT || 10000;
-const URL = process.env.RENDER_URL || `http://localhost:${PORT}`;
+const PORT = process.env.PORT;
+app.listen(PORT, () => console.log(`Web server running on port ${PORT}`));
 
 if (!TOKEN || !CHANNEL_ID || !ROLE_ID) {
   console.error("❌ Missing environment variables: DISCORD_TOKEN, CHANNEL_ID, ROLE_ID are required!");
@@ -19,11 +19,11 @@ if (!TOKEN || !CHANNEL_ID || !ROLE_ID) {
 // ====== Express Web Server ======
 const app = express();
 app.get("/", (req, res) => res.send("Bot is running!"));
-app.listen(PORT, () => console.log(`🌐 Web server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Web server running on port ${PORT}`));
 
 // Self-ping كل 5 دقائق
 setInterval(() => {
-  fetch(URL).then(() => console.log("🔁 Self-ping sent")).catch(() => {});
+  fetch(URL).then(() => console.log("Self-ping sent")).catch(() => {});
 }, 5 * 60 * 1000);
 
 // ====== Discord Bot ======
