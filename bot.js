@@ -176,17 +176,28 @@ app.get("/db/stats", (req, res) => {
 
 // Keep the server busy with internal requests
 setInterval(async () => {
+  if (!SELF_URL) return;
+  
   try {
     // Self-request to different endpoints
     const endpoints = ['/api/status', '/api/ping', '/health', '/stats'];
     const randomEndpoint = endpoints[Math.floor(Math.random() * endpoints.length)];
     
-    await fetch(`http://localhost:${PORT}${randomEndpoint}`, {
-      timeout: 5000
-    }).catch(() => {}); // Ignore failures
+    const response = await fetch(`${SELF_URL}${randomEndpoint}`, {
+      timeout: 5000,
+      headers: {
+        'User-Agent': 'Internal-KeepAlive',
+        'Accept': '*/*'
+      }
+    });
+    
+    if (response.ok) {
+      console.log(`🔄 Internal ping to ${randomEndpoint} - OK`);
+    }
     
   } catch (e) {
-    // Ignore errors
+    // Ignore errors - just keep the attempts going
+    console.log(`🔄 Internal ping failed: ${e.message}`);
   }
 }, 45000); // Every 45 seconds
 
