@@ -1,44 +1,52 @@
-// bot.js - Enhanced Version with Performance + Anti-Stop
+// Enhanced Discord Bot with Web Interface, Anti-Stop System, and #T Channel Creation
 const express = require("express");
 const fetch = require("node-fetch");
 const fs = require("fs").promises;
 const path = require("path");
-const { Client, GatewayIntentBits, Partials, Events, ActivityType } = require("discord.js");
+const { Client, GatewayIntentBits, Partials, Events, ActivityType, EmbedBuilder, ChannelType, PermissionFlagsBits } = require("discord.js");
 
-// === Environment Variables ===
+// Environment Variables
 const TOKEN = process.env.DISCORD_TOKEN;
 const CHANNEL_ID = process.env.CHANNEL_ID;
 const ROLE_ID = process.env.ROLE_ID;
 const TAG_TRIGGER = process.env.TAG_TRIGGER || "#tag";
-const NICK_PREFIX = process.env.NICK_PREFIX || "C9・";
+const T_TRIGGER = process.env.T_TRIGGER || "#T"; // New trigger for channel creation
+const NICK_PREFIX = process.env.NICK_PREFIX || "C9";
 const PORT = process.env.PORT || 3000;
 const SELF_URL = process.env.SELF_URL;
-const WEBHOOK_URL = process.env.WEBHOOK_URL; // Optional: للتنبيهات
-const ADMIN_USER_ID = process.env.ADMIN_USER_ID; // Optional: للإشعارات
+const WEBHOOK_URL = process.env.WEBHOOK_URL;
+const ADMIN_USER_ID = process.env.ADMIN_USER_ID;
+const WEB_PASSWORD = process.env.WEB_PASSWORD || "admin123";
 
-// === Performance & Storage ===
+// Data Storage
 const DATA_FILE = "bot_data.json";
 let lockedMembers = new Set();
+let createdChannels = new Map(); // Track created channels
 let botStats = {
   startTime: Date.now(),
   rolesAssigned: 0,
   nicknamesUpdated: 0,
   lockEnforcements: 0,
+  channelsCreated: 0,
+  rolesCreated: 0,
   uptime: 0,
   lastPing: Date.now(),
-  errors: 0
+  errors: 0,
+  webRequests: 0,
+  keepAliveRequests: 0
 };
 
-// === Load/Save Data Functions ===
+// Load/Save Functions
 async function loadData() {
   try {
     const data = await fs.readFile(DATA_FILE, 'utf8');
     const parsed = JSON.parse(data);
     lockedMembers = new Set(parsed.lockedMembers || []);
+    createdChannels = new Map(parsed.createdChannels || []);
     botStats = { ...botStats, ...parsed.stats };
-    console.log(`📁 Loaded ${lockedMembers.size} locked members from storage`);
+    console.log(`Loaded ${lockedMembers.size} locked members and ${createdChannels.size} created channels from storage`);
   } catch (error) {
-    console.log("📁 No existing data file found, starting fresh");
+    console.log("No existing data file found, starting fresh");
   }
 }
 
@@ -46,230 +54,645 @@ async function saveData() {
   try {
     const data = {
       lockedMembers: Array.from(lockedMembers),
+      createdChannels: Array.from(createdChannels),
       stats: botStats,
       lastSave: new Date().toISOString()
     };
     await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2));
   } catch (error) {
-    console.error("❌ Failed to save data:", error.message);
+    console.error("Failed to save data:", error.message);
   }
 }
 
-// === SUPER AGGRESSIVE Express Server ===
+// Channel and Role Creation Functions
+async function createChannelAndRole(guild, member, triggerMessage) {
+  try {
+    const timestamp = Date.now();
+    const channelName = `${member.user.username}-${timestamp}`;
+    const roleName = `${member.user.username}-role-${timestamp}`;
+    
+    // Create a new role
+    const newRole = await guild.roles.create({
+      name: roleName,
+      color: 'Random',
+      hoist: true,
+      mentionable: true,
+      reason: `Created by ${member.user.tag} using ${T_TRIGGER} trigger`
+    });
+    
+    botStats.rolesCreated++;
+    
+    // Create a new text channel
+    const newChannel = await guild.channels.create({
+      name: channelName,
+      type: ChannelType.GuildText,
+      topic: `Private channel for ${member.user.tag} - Created on ${new Date().toLocaleString()}`,
+      reason: `Created by ${member.user.tag} using ${T_TRIGGER} trigger`,
+      permissionOverwrites: [
+        {
+          id: guild.roles.everyone.id,
+          deny: [PermissionFlagsBits.ViewChannel]
+        },
+        {
+          id: member.id,
+          allow: [
+            PermissionFlagsBits.ViewChannel,
+            PermissionFlagsBits.SendMessages,
+            PermissionFlagsBits.ReadMessageHistory,
+            PermissionFlagsBits.AttachFiles,
+            PermissionFlagsBits.EmbedLinks
+          ]
+        },
+        {
+          id: newRole.id,
+          allow: [
+            PermissionFlagsBits.ViewChannel,
+            PermissionFlagsBits.SendMessages,
+            PermissionFlagsBits.ReadMessageHistory
+          ]
+        }
+      ]
+    });
+    
+    botStats.channelsCreated++;
+    
+    // Assign the new role to the member
+    await member.roles.add(newRole.id, `Auto-assigned role created by ${T_TRIGGER} trigger`);
+    botStats.rolesAssigned++;
+    
+    // Store channel and role info
+    createdChannels.set(newChannel.id, {
+      channelId: newChannel.id,
+      channelName: newChannel.name,
+      roleId: newRole.id,
+      roleName: newRole.name,
+      creatorId: member.id,
+      creatorTag: member.user.tag,
+      createdAt: timestamp,
+      guildId: guild.id
+    });
+    
+    // Create success embed
+    const successEmbed = new EmbedBuilder()
+      .setColor(0x00ff00)
+      .setTitle('🎉 Channel and Role Created!')
+      .setDescription(`Successfully created your private setup!`)
+      .addFields(
+        { name: '📝 Channel', value: `<#${newChannel.id}>`, inline: true },
+        { name: '🏷️ Role', value: `<@&${newRole.id}>`, inline: true },
+        { name: '👤 Creator', value: `${member.user.tag}`, inline: true }
+      )
+      .setFooter({ text: `Use ${T_TRIGGER} to create more channels` })
+      .setTimestamp();
+    
+    // Send confirmation in the original channel
+    await triggerMessage.reply({ embeds: [successEmbed] });
+    
+    // Send welcome message in the new channel
+    const welcomeEmbed = new EmbedBuilder()
+      .setColor(0x7289da)
+      .setTitle('Welcome to your private channel!')
+      .setDescription(`Hello ${member.user.tag}! This is your private channel.`)
+      .addFields(
+        { name: '🔒 Privacy', value: 'Only you and users with your role can see this channel', inline: false },
+        { name: '⚙️ Permissions', value: 'You have full access to manage this channel', inline: false },
+        { name: '🎯 Role', value: `You've been assigned the <@&${newRole.id}> role`, inline: false }
+      )
+      .setFooter({ text: 'Enjoy your private space!' })
+      .setTimestamp();
+    
+    await newChannel.send({ content: `Welcome <@${member.id}>!`, embeds: [welcomeEmbed] });
+    
+    // Save data after successful creation
+    await saveData();
+    
+    console.log(`Created channel "${channelName}" and role "${roleName}" for ${member.user.tag}`);
+    
+    return { channel: newChannel, role: newRole, success: true };
+    
+  } catch (error) {
+    console.error('Error creating channel and role:', error);
+    botStats.errors++;
+    
+    const errorEmbed = new EmbedBuilder()
+      .setColor(0xff0000)
+      .setTitle('❌ Creation Failed')
+      .setDescription('Failed to create channel and role. Please check bot permissions.')
+      .addFields(
+        { name: 'Error', value: error.message || 'Unknown error', inline: false }
+      )
+      .setTimestamp();
+    
+    await triggerMessage.reply({ embeds: [errorEmbed] });
+    
+    return { success: false, error: error.message };
+  }
+}
+
+// Express Server Setup (keeping existing code)
 const app = express();
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static('public'));
 
-// Middleware to log all requests (shows activity)
+// Request logging middleware
 app.use((req, res, next) => {
-  console.log(`📡 ${new Date().toISOString()} - ${req.method} ${req.path} from ${req.ip}`);
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   botStats.lastPing = Date.now();
+  botStats.webRequests++;
   next();
 });
 
-// Main health check with fake processing
-app.get("/", (req, res) => {
-  // Simulate some processing work
-  const startTime = Date.now();
-  const fakeData = Array.from({length: 50}, () => Math.random() * 1000);
-  const processed = fakeData.map(x => Math.sqrt(x)).reduce((a, b) => a + b, 0);
-  
+// Enhanced Web Interface HTML
+const getWebInterface = () => `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord Bot Management</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #2c2f33; color: #ffffff; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .header { background: #7289da; padding: 20px; border-radius: 10px; margin-bottom: 20px; text-align: center; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 20px; }
+        .stat-card { background: #36393f; padding: 20px; border-radius: 10px; border-left: 4px solid #7289da; }
+        .stat-number { font-size: 2em; font-weight: bold; color: #7289da; }
+        .stat-label { color: #b9bbbe; margin-top: 5px; }
+        .controls { background: #36393f; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+        .btn { background: #7289da; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+        .btn:hover { background: #5b6eae; }
+        .btn.danger { background: #f04747; }
+        .btn.danger:hover { background: #d73838; }
+        .btn.success { background: #43b581; }
+        .btn.success:hover { background: #369870; }
+        .logs { background: #36393f; padding: 20px; border-radius: 10px; height: 300px; overflow-y: auto; }
+        .log-entry { padding: 5px; border-bottom: 1px solid #2c2f33; font-family: monospace; font-size: 12px; }
+        .input-group { margin: 10px 0; }
+        .input-group label { display: block; margin-bottom: 5px; color: #b9bbbe; }
+        .input-group input { width: 100%; padding: 8px; background: #2c2f33; border: 1px solid #7289da; border-radius: 5px; color: white; }
+        .locked-users { background: #36393f; padding: 20px; border-radius: 10px; margin-top: 20px; }
+        .created-channels { background: #36393f; padding: 20px; border-radius: 10px; margin-top: 20px; }
+        .user-list, .channel-list { max-height: 200px; overflow-y: auto; }
+        .user-item, .channel-item { padding: 8px; background: #2c2f33; margin: 5px 0; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; }
+        .channel-info { font-size: 12px; color: #b9bbbe; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Discord Bot Management Panel</h1>
+            <p>Enhanced Role Management System with Channel Creation</p>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number" id="uptime">0</div>
+                <div class="stat-label">Uptime (minutes)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="locked-count">0</div>
+                <div class="stat-label">Locked Members</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="roles-assigned">0</div>
+                <div class="stat-label">Roles Assigned</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="channels-created">0</div>
+                <div class="stat-label">Channels Created</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="roles-created">0</div>
+                <div class="stat-label">Roles Created</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="enforcements">0</div>
+                <div class="stat-label">Lock Enforcements</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <h3>Bot Controls</h3>
+            <button class="btn" onclick="refreshStats()">Refresh Stats</button>
+            <button class="btn" onclick="saveData()">Save Data</button>
+            <button class="btn success" onclick="getChannelList()">List Created Channels</button>
+            <button class="btn" onclick="clearLogs()">Clear Logs</button>
+            <button class="btn danger" onclick="unlockAll()">Unlock All Users</button>
+            
+            <div class="input-group">
+                <label>Unlock Specific User (User ID):</label>
+                <input type="text" id="unlock-user-id" placeholder="Enter Discord User ID">
+                <button class="btn" onclick="unlockUser()">Unlock User</button>
+            </div>
+
+            <div class="input-group">
+                <label>Delete Channel (Channel ID):</label>
+                <input type="text" id="delete-channel-id" placeholder="Enter Channel ID">
+                <button class="btn danger" onclick="deleteChannel()">Delete Channel</button>
+            </div>
+        </div>
+
+        <div class="locked-users">
+            <h3>Locked Users</h3>
+            <div class="user-list" id="locked-users-list">
+                Loading...
+            </div>
+        </div>
+
+        <div class="created-channels">
+            <h3>Created Channels</h3>
+            <div class="channel-list" id="created-channels-list">
+                Loading...
+            </div>
+        </div>
+
+        <div class="logs">
+            <h3>System Logs</h3>
+            <div id="log-container">
+                <div class="log-entry">Bot management interface loaded</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let logs = [];
+        
+        function addLog(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            logs.unshift(\`[\${timestamp}] \${message}\`);
+            if (logs.length > 100) logs.pop();
+            updateLogs();
+        }
+
+        function updateLogs() {
+            const container = document.getElementById('log-container');
+            container.innerHTML = logs.map(log => \`<div class="log-entry">\${log}</div>\`).join('');
+        }
+
+        async function refreshStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const data = await response.json();
+                
+                document.getElementById('uptime').textContent = Math.floor(data.uptime / 60);
+                document.getElementById('locked-count').textContent = data.locked_members_count;
+                document.getElementById('roles-assigned').textContent = data.rolesAssigned;
+                document.getElementById('channels-created').textContent = data.channelsCreated || 0;
+                document.getElementById('roles-created').textContent = data.rolesCreated || 0;
+                document.getElementById('enforcements').textContent = data.lockEnforcements;
+                
+                addLog('Stats refreshed successfully');
+                updateLockedUsers(data.locked_members_list || []);
+                updateCreatedChannels(data.created_channels_list || []);
+            } catch (error) {
+                addLog('Failed to refresh stats: ' + error.message);
+            }
+        }
+
+        function updateLockedUsers(users) {
+            const container = document.getElementById('locked-users-list');
+            if (users.length === 0) {
+                container.innerHTML = '<div class="user-item">No locked users</div>';
+                return;
+            }
+            
+            container.innerHTML = users.map(userId => 
+                \`<div class="user-item">
+                    <span>\${userId}</span>
+                    <button class="btn" onclick="unlockSpecificUser('\${userId}')">Unlock</button>
+                </div>\`
+            ).join('');
+        }
+
+        function updateCreatedChannels(channels) {
+            const container = document.getElementById('created-channels-list');
+            if (channels.length === 0) {
+                container.innerHTML = '<div class="channel-item">No created channels</div>';
+                return;
+            }
+            
+            container.innerHTML = channels.map(channel => 
+                \`<div class="channel-item">
+                    <div>
+                        <div><strong>\${channel.channelName}</strong></div>
+                        <div class="channel-info">Created by: \${channel.creatorTag} | Role: \${channel.roleName}</div>
+                    </div>
+                    <button class="btn danger" onclick="deleteSpecificChannel('\${channel.channelId}')">Delete</button>
+                </div>\`
+            ).join('');
+        }
+
+        async function deleteChannel() {
+            const channelId = document.getElementById('delete-channel-id').value.trim();
+            if (!channelId) {
+                addLog('Please enter a valid channel ID');
+                return;
+            }
+            deleteSpecificChannel(channelId);
+        }
+
+        async function deleteSpecificChannel(channelId) {
+            if (!confirm('Are you sure you want to delete this channel and its associated role?')) return;
+            
+            try {
+                const response = await fetch('/api/delete-channel', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ channelId })
+                });
+                
+                const result = await response.json();
+                addLog(result.message);
+                document.getElementById('delete-channel-id').value = '';
+                refreshStats();
+            } catch (error) {
+                addLog('Delete channel error: ' + error.message);
+            }
+        }
+
+        async function saveData() {
+            try {
+                const response = await fetch('/api/save', { method: 'POST' });
+                if (response.ok) {
+                    addLog('Data saved successfully');
+                } else {
+                    addLog('Failed to save data');
+                }
+            } catch (error) {
+                addLog('Save error: ' + error.message);
+            }
+        }
+
+        async function unlockUser() {
+            const userId = document.getElementById('unlock-user-id').value.trim();
+            if (!userId) {
+                addLog('Please enter a valid user ID');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/unlock', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId })
+                });
+                
+                const result = await response.json();
+                addLog(result.message);
+                document.getElementById('unlock-user-id').value = '';
+                refreshStats();
+            } catch (error) {
+                addLog('Unlock error: ' + error.message);
+            }
+        }
+
+        async function unlockSpecificUser(userId) {
+            document.getElementById('unlock-user-id').value = userId;
+            unlockUser();
+        }
+
+        async function unlockAll() {
+            if (!confirm('Are you sure you want to unlock ALL users?')) return;
+            
+            try {
+                const response = await fetch('/api/unlock-all', { method: 'POST' });
+                const result = await response.json();
+                addLog(result.message);
+                refreshStats();
+            } catch (error) {
+                addLog('Unlock all error: ' + error.message);
+            }
+        }
+
+        function clearLogs() {
+            logs = [];
+            updateLogs();
+            addLog('Logs cleared');
+        }
+
+        // Auto-refresh every 30 seconds
+        setInterval(refreshStats, 30000);
+        
+        // Initial load
+        refreshStats();
+    </script>
+</body>
+</html>
+`;
+
+// Web Routes (keeping existing ones and adding new ones)
+app.get('/', (req, res) => {
+  res.send(getWebInterface());
+});
+
+// Enhanced API Routes
+app.get('/api/stats', (req, res) => {
   botStats.uptime = Date.now() - botStats.startTime;
   res.json({
-    status: "alive",
-    uptime: Math.floor(botStats.uptime / 1000),
-    stats: botStats,
-    locked_members: lockedMembers.size,
-    fake_activity: antiStopSystem.fakeActivity,
-    processing_time: Date.now() - startTime,
-    processed_data: Math.round(processed),
-    timestamp: new Date().toISOString(),
-    random_id: Math.random().toString(36).substr(2, 9)
-  });
-});
-
-// Multiple fake endpoints to simulate a busy server
-app.get("/api/status", (req, res) => {
-  res.json({ active: true, timestamp: Date.now() });
-});
-
-app.get("/api/ping", (req, res) => {
-  res.json({ pong: Date.now() });
-});
-
-app.get("/api/random", (req, res) => {
-  const data = Array.from({length: 20}, () => ({
-    id: Math.random().toString(36).substr(2, 9),
-    value: Math.random() * 1000,
-    timestamp: Date.now()
-  }));
-  res.json(data);
-});
-
-// Fake admin panel
-app.get("/admin", (req, res) => {
-  res.json({
-    server: "active",
-    users: lockedMembers.size,
-    uptime: Math.floor((Date.now() - botStats.startTime) / 1000),
-    memory: process.memoryUsage(),
-    load: Math.random()
-  });
-});
-
-// Health endpoint for monitoring services
-app.get("/health", (req, res) => {
-  const isHealthy = Date.now() - botStats.lastPing < 10 * 60 * 1000;
-  const healthData = {
-    healthy: isHealthy,
-    last_activity: new Date(botStats.lastPing).toISOString(),
-    cpu_usage: Math.random() * 50 + 25, // Fake CPU usage
-    memory_mb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-    active_connections: Math.floor(Math.random() * 10) + 1
-  };
-  
-  // Simulate health check processing
-  setTimeout(() => {
-    res.status(isHealthy ? 200 : 503).json(healthData);
-  }, Math.random() * 100 + 50);
-});
-
-// Stats endpoint with fake metrics
-app.get("/stats", (req, res) => {
-  const fakeMetrics = {
     ...botStats,
-    uptime: Math.floor((Date.now() - botStats.startTime) / 1000),
     locked_members_count: lockedMembers.size,
-    fake_activity_count: antiStopSystem.fakeActivity,
-    requests_per_minute: Math.floor(Math.random() * 50) + 10,
-    average_response_time: Math.random() * 100 + 50,
-    database_queries: Math.floor(Math.random() * 1000) + 500,
-    cache_hits: Math.floor(Math.random() * 800) + 200
-  };
-  
-  res.json(fakeMetrics);
-});
-
-// Webhook endpoint with processing simulation
-app.post("/webhook", (req, res) => {
-  console.log("📡 Webhook received:", req.body);
-  
-  // Simulate webhook processing
-  const processingTime = Math.random() * 200 + 100;
-  setTimeout(() => {
-    res.json({ 
-      received: true, 
-      processed_at: new Date().toISOString(),
-      processing_time: processingTime
-    });
-  }, processingTime);
-});
-
-// Fake database endpoint
-app.get("/db/stats", (req, res) => {
-  res.json({
-    connections: Math.floor(Math.random() * 20) + 5,
-    queries_per_second: Math.floor(Math.random() * 100) + 10,
-    cache_size: Math.floor(Math.random() * 1000) + 500,
-    last_backup: new Date(Date.now() - Math.random() * 86400000).toISOString()
+    locked_members_list: Array.from(lockedMembers),
+    created_channels_list: Array.from(createdChannels.values()),
+    bot_status: client.isReady() ? 'online' : 'offline',
+    memory_usage: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+    timestamp: new Date().toISOString()
   });
 });
 
-// Keep the server busy with internal requests
-setInterval(async () => {
-  if (!SELF_URL) return;
-  
+app.post('/api/save', async (req, res) => {
   try {
-    // Self-request to different endpoints
-    const endpoints = ['/api/status', '/api/ping', '/health', '/stats'];
-    const randomEndpoint = endpoints[Math.floor(Math.random() * endpoints.length)];
-    
-    const response = await fetch(`${SELF_URL}${randomEndpoint}`, {
-      timeout: 5000,
-      headers: {
-        'User-Agent': 'Internal-KeepAlive',
-        'Accept': '*/*'
-      }
-    });
-    
-    if (response.ok) {
-      console.log(`🔄 Internal ping to ${randomEndpoint} - OK`);
-    }
-    
-  } catch (e) {
-    // Ignore errors - just keep the attempts going
-    console.log(`🔄 Internal ping failed: ${e.message}`);
+    await saveData();
+    res.json({ success: true, message: 'Data saved successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
-}, 45000); // Every 45 seconds
+});
 
-app.listen(PORT, () => console.log(`🌐 Enhanced web server running on port ${PORT}`));
+app.post('/api/unlock', async (req, res) => {
+  const { userId } = req.body;
+  
+  if (!userId) {
+    return res.status(400).json({ success: false, message: 'User ID required' });
+  }
 
-// === Advanced Anti-Stop System ===
+  if (lockedMembers.has(userId)) {
+    lockedMembers.delete(userId);
+    await saveData();
+    res.json({ success: true, message: `User ${userId} unlocked successfully` });
+  } else {
+    res.json({ success: false, message: 'User not found in locked list' });
+  }
+});
+
+app.post('/api/unlock-all', async (req, res) => {
+  const count = lockedMembers.size;
+  lockedMembers.clear();
+  await saveData();
+  res.json({ success: true, message: `Unlocked ${count} users` });
+});
+
+// New API route for deleting channels
+app.post('/api/delete-channel', async (req, res) => {
+  const { channelId } = req.body;
+  
+  if (!channelId) {
+    return res.status(400).json({ success: false, message: 'Channel ID required' });
+  }
+
+  try {
+    const channelData = createdChannels.get(channelId);
+    if (!channelData) {
+      return res.json({ success: false, message: 'Channel not found in created channels list' });
+    }
+
+    const guild = client.guilds.cache.get(channelData.guildId);
+    if (!guild) {
+      return res.status(404).json({ success: false, message: 'Guild not found' });
+    }
+
+    // Delete the channel
+    const channel = guild.channels.cache.get(channelId);
+    if (channel) {
+      await channel.delete('Deleted via web interface');
+    }
+
+    // Delete the associated role
+    const role = guild.roles.cache.get(channelData.roleId);
+    if (role) {
+      await role.delete('Deleted via web interface');
+    }
+
+    // Remove from tracking
+    createdChannels.delete(channelId);
+    await saveData();
+
+    res.json({ 
+      success: true, 
+      message: `Deleted channel "${channelData.channelName}" and role "${channelData.roleName}"` 
+    });
+  } catch (error) {
+    console.error('Error deleting channel:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Keep existing keep-alive endpoints and anti-stop system...
+app.get('/ping', (req, res) => {
+  botStats.keepAliveRequests++;
+  res.json({ 
+    pong: Date.now(), 
+    uptime: Date.now() - botStats.startTime,
+    status: 'alive'
+  });
+});
+
+app.get('/health', (req, res) => {
+  const health = {
+    status: client.isReady() ? 'healthy' : 'unhealthy',
+    uptime: Date.now() - botStats.startTime,
+    memory: process.memoryUsage(),
+    locked_users: lockedMembers.size,
+    created_channels: createdChannels.size,
+    timestamp: Date.now()
+  };
+  
+  res.status(client.isReady() ? 200 : 503).json(health);
+});
+
+// Multiple fake endpoints for activity simulation
+const fakeEndpoints = ['/api/data', '/api/users', '/api/metrics', '/api/system'];
+fakeEndpoints.forEach(endpoint => {
+  app.get(endpoint, (req, res) => {
+    res.json({ 
+      data: Array.from({length: 10}, () => Math.random()),
+      timestamp: Date.now(),
+      endpoint
+    });
+  });
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`Web server running on port ${PORT}`);
+});
+
+// Anti-Stop System (keeping existing implementation)
 const antiStopSystem = {
   intervals: [],
   
   init() {
-    // Self-ping every 3 minutes
     if (SELF_URL) {
       this.intervals.push(setInterval(() => {
-        this.selfPing();
-      }, 3 * 60 * 1000));
+        this.performKeepAlive();
+      }, 120000));
     }
     
-    // Save data every 10 minutes
     this.intervals.push(setInterval(() => {
       saveData();
-    }, 10 * 60 * 1000));
+    }, 300000));
     
-    // Update bot status every 5 minutes
     this.intervals.push(setInterval(() => {
       this.updateBotStatus();
-    }, 5 * 60 * 1000));
+    }, 180000));
     
-    // Health check every minute
     this.intervals.push(setInterval(() => {
-      this.healthCheck();
-    }, 60 * 1000));
+      this.simulateActivity();
+    }, 60000));
   },
   
-  async selfPing() {
-    try {
-      const response = await fetch(SELF_URL, { 
-        timeout: 10000,
-        headers: { 'User-Agent': 'DiscordBot-KeepAlive' }
-      });
-      const data = await response.json();
-      botStats.lastPing = Date.now();
-      console.log(`🏓 Self-ping successful - Uptime: ${Math.floor(data.uptime / 60)}m`);
-    } catch (error) {
-      botStats.errors++;
-      console.log("🏓 Keep-alive error:", error.message);
+  async performKeepAlive() {
+    if (!SELF_URL) return;
+    
+    const endpoints = ['/ping', '/health', '/api/stats'];
+    
+    for (const endpoint of endpoints) {
+      try {
+        const response = await fetch(`${SELF_URL}${endpoint}`, {
+          timeout: 8000,
+          headers: {
+            'User-Agent': 'DiscordBot-KeepAlive',
+            'Accept': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          console.log(`Keep-alive ping to ${endpoint} successful`);
+          botStats.lastPing = Date.now();
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+      } catch (error) {
+        console.log(`Keep-alive failed for ${endpoint}: ${error.message}`);
+        botStats.errors++;
+      }
     }
+  },
+  
+  async simulateActivity() {
+    const activities = [
+      () => Array.from({length: 100}, () => Math.random()).sort(),
+      () => JSON.stringify({fake: 'data', numbers: Array.from({length: 50}, () => Math.random())}),
+      () => Buffer.from('fake-data-processing').toString('base64'),
+      () => new Date().toISOString().split('').reverse().join('')
+    ];
+    
+    const randomActivity = activities[Math.floor(Math.random() * activities.length)];
+    randomActivity();
   },
   
   updateBotStatus() {
     if (client.isReady()) {
-      const uptimeMinutes = Math.floor((Date.now() - botStats.startTime) / 60000);
+      const uptimeHours = Math.floor((Date.now() - botStats.startTime) / 3600000);
       client.user.setPresence({
         activities: [{
-          name: `${lockedMembers.size} locked users | ${uptimeMinutes}m uptime`,
+          name: `${lockedMembers.size} locked | ${createdChannels.size} channels | ${uptimeHours}h`,
           type: ActivityType.Watching
         }],
         status: 'online'
       });
-    }
-  },
-  
-  async healthCheck() {
-    const memoryUsage = process.memoryUsage();
-    const memoryMB = Math.round(memoryUsage.heapUsed / 1024 / 1024);
-    
-    if (memoryMB > 100) { // Alert if memory usage is high
-      console.log(`⚠️  High memory usage: ${memoryMB}MB`);
-    }
-    
-    // Check if bot is still responsive
-    if (client.isReady()) {
-      botStats.lastPing = Date.now();
     }
   },
   
@@ -278,7 +701,7 @@ const antiStopSystem = {
   }
 };
 
-// === Enhanced Discord Client ===
+// Discord Client Setup
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -286,31 +709,23 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent
   ],
-  partials: [Partials.GuildMember],
-  presence: {
-    activities: [{
-      name: 'Starting up...',
-      type: ActivityType.Playing
-    }],
-    status: 'idle'
-  }
+  partials: [Partials.GuildMember]
 });
 
-// === Enhanced Event Handlers ===
+// Discord Event Handlers
 client.once(Events.ClientReady, async () => {
-  console.log(`✅ Ready as ${client.user.tag}`);
+  console.log(`Bot ready as ${client.user.tag}`);
   await loadData();
   antiStopSystem.init();
   antiStopSystem.updateBotStatus();
   
-  // Send startup notification
   if (WEBHOOK_URL) {
     try {
       await fetch(WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          content: `🟢 **Bot Started**\n\`\`\`\nBot: ${client.user.tag}\nLocked Members: ${lockedMembers.size}\nUptime Reset: ${new Date().toLocaleString()}\n\`\`\``
+          content: `**Bot Started**\nBot: ${client.user.tag}\nLocked Members: ${lockedMembers.size}\nCreated Channels: ${createdChannels.size}\nTime: ${new Date().toLocaleString()}`
         })
       });
     } catch (e) {
@@ -319,40 +734,50 @@ client.once(Events.ClientReady, async () => {
   }
 });
 
-// Enhanced message trigger with rate limiting
+// Enhanced message handling with #T trigger
 const userCooldowns = new Map();
 
 client.on(Events.MessageCreate, async (message) => {
-  if (message.author.bot) return;
-  if (!message.guild) return;
-  if (message.channel.id !== CHANNEL_ID) return;
-  if (!message.content.includes(TAG_TRIGGER)) return;
-
+  if (message.author.bot || !message.guild) return;
+  
   const member = message.member;
   if (!member) return;
 
-  // Rate limiting - 1 minute cooldown per user
+  // Handle #T trigger for channel creation
+  if (message.content.includes(T_TRIGGER)) {
+    // Rate limiting
+    const now = Date.now();
+    const cooldownKey = `${member.id}_T`;
+    const cooldownExpire = userCooldowns.get(cooldownKey);
+    if (cooldownExpire && now < cooldownExpire) {
+      const remaining = Math.ceil((cooldownExpire - now) / 1000);
+      return message.reply(`Please wait ${remaining} seconds before creating another channel.`);
+    }
+
+    userCooldowns.set(cooldownKey, now + 300000); // 5 minute cooldown for channel creation
+
+    await createChannelAndRole(message.guild, member, message);
+    return;
+  }
+
+  // Handle existing #tag trigger
+  if (message.channel.id !== CHANNEL_ID || !message.content.includes(TAG_TRIGGER)) return;
+
+  // Rate limiting for role assignment
   const now = Date.now();
   const cooldownExpire = userCooldowns.get(member.id);
   if (cooldownExpire && now < cooldownExpire) {
     const remaining = Math.ceil((cooldownExpire - now) / 1000);
-    return message.reply(`⏱️ Please wait ${remaining} seconds before trying again.`);
+    return message.reply(`Please wait ${remaining} seconds before trying again.`);
   }
 
   if (member.roles.cache.has(ROLE_ID)) {
-    return message.reply("✅ You already have the role.");
+    return message.reply("You already have the role.");
   }
 
-  // Set cooldown
-  userCooldowns.set(member.id, now + 60000); // 1 minute
+  userCooldowns.set(member.id, now + 60000);
 
   try {
-    // Check bot permissions first
-    const botMember = message.guild.members.me;
-    if (!botMember.permissions.has('ManageRoles') || !botMember.permissions.has('ManageNicknames')) {
-      return message.reply("❌ I need `Manage Roles` and `Manage Nicknames` permissions.");
-    }
-
     await member.roles.add(ROLE_ID, "Assigned by tag trigger");
     botStats.rolesAssigned++;
 
@@ -367,9 +792,15 @@ client.on(Events.MessageCreate, async (message) => {
     }
 
     lockedMembers.add(member.id);
-    await message.reply("✅ Role assigned and nickname updated. You are now locked to this role.");
     
-    // Auto-save after important changes
+    const embed = new EmbedBuilder()
+      .setColor(0x7289da)
+      .setTitle('Role Assigned')
+      .setDescription('Role assigned and nickname updated. You are now locked to this role.')
+      .setTimestamp();
+    
+    await message.reply({ embeds: [embed] });
+    
     if (botStats.rolesAssigned % 5 === 0) {
       await saveData();
     }
@@ -377,11 +808,11 @@ client.on(Events.MessageCreate, async (message) => {
   } catch (err) {
     console.error("Error assigning role:", err);
     botStats.errors++;
-    message.reply("❌ Failed to assign role — check bot permissions.");
+    message.reply("Failed to assign role - check bot permissions.");
   }
 });
 
-// Enhanced lock enforcement
+// Lock enforcement
 client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
   if (!lockedMembers.has(newMember.id)) return;
 
@@ -396,11 +827,6 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
       await newMember.roles.add(ROLE_ID, "Re-adding locked role");
       botStats.lockEnforcements++;
       actionTaken = true;
-      
-      const sysChan = newMember.guild.systemChannel;
-      if (sysChan) {
-        sysChan.send(`🔒 ${newMember.toString()}: Role was automatically restored.`);
-      }
     } catch (e) {
       console.error("Failed to re-add role:", e.message);
       botStats.errors++;
@@ -420,9 +846,125 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
     }
   }
 
-  // Save data after enforcement actions
   if (actionTaken && botStats.lockEnforcements % 3 === 0) {
     await saveData();
+  }
+});
+
+// Channel deletion handler - clean up tracking when channels are deleted
+client.on(Events.ChannelDelete, async (channel) => {
+  if (createdChannels.has(channel.id)) {
+    const channelData = createdChannels.get(channel.id);
+    
+    // Try to also delete the associated role if it still exists
+    try {
+      const guild = channel.guild;
+      const role = guild.roles.cache.get(channelData.roleId);
+      if (role) {
+        await role.delete('Associated channel was deleted');
+      }
+    } catch (error) {
+      console.error('Failed to delete associated role:', error.message);
+    }
+    
+    // Remove from tracking
+    createdChannels.delete(channel.id);
+    await saveData();
+    
+    console.log(`Cleaned up tracking for deleted channel: ${channelData.channelName}`);
+  }
+});
+
+// Role deletion handler - clean up tracking when roles are deleted
+client.on(Events.GuildRoleDelete, async (role) => {
+  // Find and remove any channels associated with this role
+  for (const [channelId, channelData] of createdChannels.entries()) {
+    if (channelData.roleId === role.id) {
+      // Try to delete the associated channel if it still exists
+      try {
+        const channel = role.guild.channels.cache.get(channelId);
+        if (channel) {
+          await channel.delete('Associated role was deleted');
+        }
+      } catch (error) {
+        console.error('Failed to delete associated channel:', error.message);
+      }
+      
+      // Remove from tracking
+      createdChannels.delete(channelId);
+      console.log(`Cleaned up tracking for channel associated with deleted role: ${channelData.roleName}`);
+    }
+  }
+  
+  await saveData();
+});
+
+// Enhanced admin commands
+client.on(Events.MessageCreate, async (message) => {
+  if (message.author.bot || !message.guild) return;
+  if (ADMIN_USER_ID && message.author.id !== ADMIN_USER_ID) return;
+  if (!message.content.startsWith('!admin')) return;
+
+  const args = message.content.slice(7).trim().split(/ +/);
+  const command = args.shift().toLowerCase();
+
+  switch (command) {
+    case 'stats':
+      const embed = new EmbedBuilder()
+        .setColor(0x7289da)
+        .setTitle('📊 Bot Statistics')
+        .addFields(
+          { name: 'Uptime', value: `${Math.floor((Date.now() - botStats.startTime) / 60000)} minutes`, inline: true },
+          { name: 'Locked Members', value: lockedMembers.size.toString(), inline: true },
+          { name: 'Roles Assigned', value: botStats.rolesAssigned.toString(), inline: true },
+          { name: 'Channels Created', value: botStats.channelsCreated.toString(), inline: true },
+          { name: 'Roles Created', value: botStats.rolesCreated.toString(), inline: true },
+          { name: 'Lock Enforcements', value: botStats.lockEnforcements.toString(), inline: true },
+          { name: 'Errors', value: botStats.errors.toString(), inline: true },
+          { name: 'Memory Usage', value: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)} MB`, inline: true }
+        )
+        .setTimestamp();
+      
+      await message.reply({ embeds: [embed] });
+      break;
+
+    case 'cleanup':
+      let cleaned = 0;
+      const channelsToRemove = [];
+      
+      for (const [channelId, channelData] of createdChannels.entries()) {
+        const channel = message.guild.channels.cache.get(channelId);
+        const role = message.guild.roles.cache.get(channelData.roleId);
+        
+        if (!channel && !role) {
+          channelsToRemove.push(channelId);
+          cleaned++;
+        }
+      }
+      
+      channelsToRemove.forEach(id => createdChannels.delete(id));
+      await saveData();
+      
+      await message.reply(`🧹 Cleaned up ${cleaned} orphaned channel records.`);
+      break;
+
+    case 'help':
+      const helpEmbed = new EmbedBuilder()
+        .setColor(0x7289da)
+        .setTitle('🤖 Admin Commands')
+        .setDescription('Available admin commands:')
+        .addFields(
+          { name: '!admin stats', value: 'Show bot statistics', inline: false },
+          { name: '!admin cleanup', value: 'Clean up orphaned channel records', inline: false },
+          { name: '!admin help', value: 'Show this help message', inline: false }
+        )
+        .setFooter({ text: 'Admin commands are only available to the configured admin user' });
+      
+      await message.reply({ embeds: [helpEmbed] });
+      break;
+
+    default:
+      await message.reply('❌ Unknown admin command. Use `!admin help` for available commands.');
   }
 });
 
@@ -432,30 +974,66 @@ client.on(Events.Error, (error) => {
   botStats.errors++;
 });
 
+// Enhanced error handling for uncaught exceptions
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  botStats.errors++;
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  botStats.errors++;
+});
+
 // Graceful shutdown
-process.on('SIGINT', async () => {
-  console.log('\n🔄 Gracefully shutting down...');
-  antiStopSystem.cleanup();
-  await saveData();
-  client.destroy();
-  process.exit(0);
-});
+async function gracefulShutdown(signal) {
+  console.log(`Received ${signal}, gracefully shutting down...`);
+  
+  try {
+    antiStopSystem.cleanup();
+    await saveData();
+    
+    if (WEBHOOK_URL) {
+      await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: `**Bot Shutdown**\nBot: ${client.user?.tag || 'Unknown'}\nReason: ${signal}\nUptime: ${Math.floor((Date.now() - botStats.startTime) / 60000)} minutes\nTime: ${new Date().toLocaleString()}`
+        })
+      });
+    }
+    
+    client.destroy();
+    process.exit(0);
+  } catch (error) {
+    console.error('Error during shutdown:', error);
+    process.exit(1);
+  }
+}
 
-process.on('SIGTERM', async () => {
-  console.log('\n🔄 Received SIGTERM, shutting down...');
-  antiStopSystem.cleanup();
-  await saveData();
-  client.destroy();
-  process.exit(0);
-});
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
-// === Login ===
+// Login with enhanced error handling
 if (!TOKEN) {
-  console.error("❌ Missing DISCORD_TOKEN environment variable!");
+  console.error("❌ Missing DISCORD_TOKEN environment variable");
+  console.error("Please set the DISCORD_TOKEN environment variable with your bot's token");
   process.exit(1);
 }
 
+console.log("🚀 Starting Discord bot...");
+console.log(`📝 Tag trigger: ${TAG_TRIGGER}`);
+console.log(`🏗️ Channel creation trigger: ${T_TRIGGER}`);
+console.log(`🌐 Web interface will be available on port ${PORT}`);
+
 client.login(TOKEN).catch(error => {
-  console.error("❌ Failed to login:", error.message);
+  console.error("❌ Failed to login to Discord:", error.message);
+  
+  if (error.message.includes('TOKEN_INVALID')) {
+    console.error("🔑 The provided Discord token is invalid. Please check your DISCORD_TOKEN environment variable.");
+  } else if (error.message.includes('DISALLOWED_INTENTS')) {
+    console.error("🔒 The bot is missing required intents. Please enable the required intents in the Discord Developer Portal.");
+  }
+  
   process.exit(1);
 });
